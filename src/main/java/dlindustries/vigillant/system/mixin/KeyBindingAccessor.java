@@ -12,5 +12,11 @@ public interface KeyBindingAccessor {
 
 	@Accessor("pressed")
 	boolean vigillant$isPressed();
+
+	@Accessor("timesPressed")
+	int getTimesPressed();
+
+	@Accessor("timesPressed")
+	void setTimesPressed(int timesPressed);
 }
 

@@ -42,7 +42,7 @@ public final class ModuleManager implements ButtonListener {
 		add(new AutoDrain());
 		add(new AutoClicker());
 		add(new AutoCart());
-		add(new CartKey());
+	
 
 		// Potion modules
 		add(new AutoPot());
@@ -51,25 +51,25 @@ public final class ModuleManager implements ButtonListener {
 		// Crystal modules
 		add(new DoubleAnchor());
 		add(new HoverTotem());
+		add(new AutoTotem());
 		add(new OpenHoverTotem());
 		add(new AnchorMacro());
 		add(new AutoCrystal());
 		add(new AutoDoubleHand());
 		add(new dtapsetup());
-		add(new AutoInventoryTotem());
 		add(new KeyPearl());
 		add(new DhandMod());
 		add(new SafeAnchor());
 		add(new AutoXP());
 
 		// Mace modules
+		add(new AutoMace());
 		add(new BreachSwap());
-		add(new MaceSwap());
 		add(new DiveBomber());
 		add(new FireworkMacro());
 		add(new KeyWindCharge());
 		add(new PearlCatch());
-		add(new MaceTrigger());
+
 
 		// Optimizer modules
 		add(new MisclickOptimizer());
@@ -83,6 +83,8 @@ public final class ModuleManager implements ButtonListener {
 		add(new PlacementOptimizer());
 		add(new HitOptimizer());
 		add(new ShieldOptimizer());
+		add(new AutoTool());
+		add(new FastBridge());
 
 		// Render modules
 		add(new HUD());
@@ -97,6 +99,7 @@ public final class ModuleManager implements ButtonListener {
 		add(new StorageEsp());
 		add(new Fullbright());
 		add(new SkinSpoofer());
+		add(new HitAnimations());
 
 		// Client modules
 		add(new ClickGUI());

@@ -43,7 +43,7 @@ public final class ClickGUI extends Module implements PacketReceiveListener {
 
 	public static final NumberSetting alphaWindow = new NumberSetting(EncryptedString.of("Window Alpha"), 0, 255, 180, 1);
 	public static final BooleanSetting breathing = new BooleanSetting(EncryptedString.of("Breathing"), true)
-			.setDescription(EncryptedString.of("System breathing theme"));
+			.setDescription(EncryptedString.of("Regen breathing theme"));
 
 	public static final BooleanSetting background = new BooleanSetting(EncryptedString.of("Background"), true)
 			.setDescription(EncryptedString.of("Renders the background of the Click Gui"));
@@ -65,7 +65,7 @@ public final class ClickGUI extends Module implements PacketReceiveListener {
 	}
 
 	public ClickGUI() {
-		super(EncryptedString.of("System"),
+		super(EncryptedString.of("Regen"),
 				EncryptedString.of("Improved fork from Argon Client, dedicated for Vanilla Pvp while bypassing all modern anticheat solutions"),
 				GLFW.GLFW_KEY_RIGHT_SHIFT,
 				Category.CLIENT);

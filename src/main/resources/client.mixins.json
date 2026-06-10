@@ -37,6 +37,7 @@
     "LivingEntityRendererMixin",
     "ClientWorldMixin",
     "LivingEntityMixin",
+    "HeldItemRendererMixin",
     "TextVisitFactoryMixin"
 
   ],

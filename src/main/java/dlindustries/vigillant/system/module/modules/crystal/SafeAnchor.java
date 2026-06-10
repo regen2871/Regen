@@ -15,13 +15,20 @@ import dlindustries.vigillant.system.utils.MathUtils;
 import dlindustries.vigillant.system.utils.RotationUtils;
 import dlindustries.vigillant.system.utils.WorldUtils;
 import dlindustries.vigillant.system.utils.rotation.Rotation;
+import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ArmorItem;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.item.SwordItem;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -107,27 +114,26 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 	@Override
 	public void onItemUse(ItemUseEvent event) {
 		if (!canStartFromHeldAnchor()) return;
+		if (!hasRequiredItems()) return;
+
 		BlockHitResult hit = getBlockHit();
 		if (hit == null) return;
 
 		BlockPos pos = getPlacementPos(hit);
 		if (!isInRange(pos)) return;
 
-		// Check level-based trigger condition
+		SequenceMode sequenceMode;
 		if (levelBasedTrigger.getValue()) {
 			double verticalDiff = pos.getY() - mc.player.getY();
-			if (verticalDiff > 0.5) {
-				// Anchor is placed above player, use normal mode
-				startSequence(pos, SequenceMode.NORMAL);
-				return;
-			} else {
-				// Anchor is placed below or same level, use safe mode
-				startSequence(pos, SequenceMode.SAFE);
-				return;
-			}
+			sequenceMode = verticalDiff > 0.5 ? SequenceMode.NORMAL : SequenceMode.SAFE;
+		} else {
+			sequenceMode = getModeForNearestEnemy();
 		}
 
-		startSequence(pos, getModeForNearestEnemy());
+		if (sequenceMode == SequenceMode.SAFE) {
+			event.cancel();
+		}
+		startSequence(pos, sequenceMode);
 	}
 
 	@Override
@@ -146,8 +152,13 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
         if (clock++ < actionDelay.getValueInt()) return;
         clock = 0;
 
+        if (!hasRequiredItems()) {
+            resetSequence();
+            return;
+        }
+
         switch (step) {
-            case 0 -> waitForOrPlaceAnchor();
+            case 0 -> placeOrWaitForAnchor();
             case 1 -> chargePlacedAnchor();
             case 2 -> placeGuardIfSafeMode();
             case 3 -> switchToSafeSlot();
@@ -156,13 +167,39 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
         }
     }
 
-    private void waitForOrPlaceAnchor() {
-        if (!BlockUtils.isBlock(anchorPos, Blocks.RESPAWN_ANCHOR)) {
-            if (anchorWait++ > 20) resetSequence();
+    private void placeOrWaitForAnchor() {
+        if (BlockUtils.isBlock(anchorPos, Blocks.RESPAWN_ANCHOR)) {
+            advance();
             return;
         }
 
-        advance();
+        if (mode == SequenceMode.NORMAL) {
+            if (anchorWait++ > 30) resetSequence();
+            return;
+        }
+
+        if (!canPlaceAt(anchorPos)) {
+            resetSequence();
+            return;
+        }
+
+        if (!InventoryUtils.selectItemFromHotbar(Items.RESPAWN_ANCHOR)) {
+            resetSequence();
+            return;
+        }
+
+        BlockHitResult placement = getPlacementHit(anchorPos);
+        if (placement == null) {
+            if (anchorWait++ > 15) resetSequence();
+            return;
+        }
+
+        WorldUtils.placeBlock(placement, true);
+        if (BlockUtils.isBlock(anchorPos, Blocks.RESPAWN_ANCHOR)) {
+            advance();
+        } else if (anchorWait++ > 15) {
+            resetSequence();
+        }
     }
 
 	private void chargePlacedAnchor() {
@@ -176,17 +213,8 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 			return;
 		}
 
-		if (mode == SequenceMode.NORMAL) {
-			if (!chargeAnchor()) resetSequence();
-			else advance();
-			return;
-		}
-
-		BlockHitResult hit = anchorHit();
-		rotateThen(hit.getPos(), () -> {
-			if (!chargeAnchor()) resetSequence();
-			else advance();
-		});
+		if (!chargeAnchor()) resetSequence();
+		else advance();
 	}
 
 	private void placeGuardIfSafeMode() {
@@ -195,18 +223,26 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 			return;
 		}
 
-		if (guardPos != null && canPlaceAt(guardPos)) {
-			BlockHitResult placement = getPlacementHit(guardPos);
-			if (placement != null) {
-				rotateThen(placement.getPos(), () -> {
-					if (!placeItem(guardPos, Items.GLOWSTONE)) resetSequence();
-					else advance();
-				});
-				return;
-			}
+		if (guardPos == null || !canPlaceAt(guardPos)) {
+			advance();
+			return;
 		}
 
-		advance();
+		if (canPlaceAt(guardPos.down())) {
+			advance();
+			return;
+		}
+
+		BlockHitResult placement = getPlacementHit(guardPos);
+		if (placement == null) {
+			advance();
+			return;
+		}
+
+		rotateThen(placement.getPos(), () -> {
+			if (!placeItem(guardPos, Items.GLOWSTONE)) resetSequence();
+			else advance();
+		});
 	}
 
 	private void switchToSafeSlot() {
@@ -221,7 +257,7 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 			return;
 		}
 
-		if (lootProtect.getValue() && WorldUtils.isValuableLootNearby()) {
+		if (lootProtect.getValue() && (hasLootNearAnchor() || WorldUtils.isValuableLootNearby())) {
 			resetSequence();
 			return;
 		}
@@ -274,10 +310,16 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 
 	private BlockPos getGuardPos(BlockPos pos) {
 		Vec3d midpoint = mc.player.getPos().add(Vec3d.ofCenter(pos)).multiply(0.5);
-		BlockPos middle = BlockPos.ofFloored(midpoint.x, mc.player.getY(), midpoint.z);
-		return middle.equals(pos) || middle.equals(mc.player.getBlockPos())
-				? mc.player.getBlockPos().offset(Direction.fromRotation(mc.player.getYaw()))
-				: middle;
+		BlockPos protectionPos = BlockPos.ofFloored(midpoint.x, mc.player.getBlockY(), midpoint.z);
+
+		if (protectionPos.equals(pos) || protectionPos.equals(mc.player.getBlockPos())) {
+			Direction facing = Direction.fromRotation(mc.player.getYaw());
+			protectionPos = mc.player.getBlockPos().offset(facing);
+			if (protectionPos.equals(pos)) {
+				protectionPos = mc.player.getBlockPos();
+			}
+		}
+		return protectionPos;
 	}
 
 	private boolean placeItem(BlockPos pos, Item item) {
@@ -338,7 +380,10 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 			else currentPitch = MathHelper.clamp(currentPitch + Math.copySign(maxStep, pitchDiff), -90.0f, 90.0f);
 		}
 
-		if (!silentRotation.getValue()) {
+		if (silentRotation.getValue()) {
+			dlindustries.vigillant.system.system.INSTANCE.rotatorManager
+					.beginPacketSpoof(new Rotation(currentYaw, currentPitch));
+		} else {
 			mc.player.setYaw(currentYaw);
 			mc.player.setPitch(currentPitch);
 		}
@@ -469,7 +514,11 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 	}
 
 	private BlockHitResult getPlacementHit(BlockPos pos) {
-		for (Direction direction : Direction.values()) {
+		Direction[] directions = {
+				Direction.DOWN, Direction.UP, Direction.NORTH,
+				Direction.SOUTH, Direction.WEST, Direction.EAST
+		};
+		for (Direction direction : directions) {
 			BlockPos neighbor = pos.offset(direction);
 			if (!mc.world.getBlockState(neighbor).isReplaceable()) {
 				Direction side = direction.getOpposite();
@@ -486,7 +535,60 @@ public final class SafeAnchor extends Module implements TickListener, ItemUseLis
 
 	private boolean canPlaceAt(BlockPos pos) {
 		if (pos == null || mc.world == null) return false;
-		return mc.world.getBlockState(pos).isReplaceable();
+		var state = mc.world.getBlockState(pos);
+		if (state.isAir()) return true;
+
+		Block block = state.getBlock();
+		return block == Blocks.SHORT_GRASS
+				|| block == Blocks.TALL_GRASS
+				|| block == Blocks.FERN
+				|| block == Blocks.LARGE_FERN
+				|| block == Blocks.DEAD_BUSH
+				|| block == Blocks.VINE
+				|| block == Blocks.FIRE
+				|| block == Blocks.SOUL_FIRE
+				|| block == Blocks.WATER
+				|| block == Blocks.LAVA
+				|| block == Blocks.SNOW
+				|| block == Blocks.SEAGRASS
+				|| block == Blocks.TALL_SEAGRASS
+				|| block == Blocks.KELP
+				|| block == Blocks.KELP_PLANT
+				|| state.isReplaceable();
+	}
+
+	private boolean hasRequiredItems() {
+		if (mc.player == null) return false;
+		boolean hasAnchor = false;
+		boolean hasGlowstone = false;
+		for (int i = 0; i < 9; i++) {
+			var stack = mc.player.getInventory().getStack(i);
+			if (stack.isOf(Items.RESPAWN_ANCHOR)) hasAnchor = true;
+			if (stack.isOf(Items.GLOWSTONE)) hasGlowstone = true;
+		}
+		return hasAnchor && hasGlowstone;
+	}
+
+	private boolean hasLootNearAnchor() {
+		if (mc.world == null || anchorPos == null) return false;
+
+		double searchRadius = 10.0;
+		Box searchBox = new Box(
+				anchorPos.getX() - searchRadius, anchorPos.getY() - searchRadius, anchorPos.getZ() - searchRadius,
+				anchorPos.getX() + searchRadius, anchorPos.getY() + searchRadius, anchorPos.getZ() + searchRadius
+		);
+
+		for (Entity entity : mc.world.getOtherEntities(null, searchBox)) {
+			if (!(entity instanceof ItemEntity itemEntity)) continue;
+			ItemStack stack = itemEntity.getStack();
+			if (stack.isEmpty()) continue;
+			if (stack.getItem() instanceof ArmorItem
+					|| stack.getItem() instanceof SwordItem
+					|| stack.isOf(Items.TOTEM_OF_UNDYING)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void resetSequence() {

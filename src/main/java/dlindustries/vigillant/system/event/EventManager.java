@@ -1,7 +1,7 @@
 package dlindustries.vigillant.system.event;
 
 import dlindustries.vigillant.system.system;
-
+import dlindustries.vigillant.system.event.events.TickListener;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -44,7 +44,7 @@ public final class EventManager {
 		add(type, listener, 0);
 	}
 
-		public <L extends Listener> void add(Class<L> type, L listener, int priority) {
+	public <L extends Listener> void add(Class<L> type, L listener, int priority) {
 		ArrayList<PrioritizedListener<L>> listeners = (ArrayList<PrioritizedListener<L>>) (Object) listenerMap.get(type);
 		if (listeners == null) {
 			listeners = new ArrayList<>();

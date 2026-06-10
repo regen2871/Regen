@@ -5,6 +5,7 @@ import dlindustries.vigillant.system.gui.ClickGui;
 import dlindustries.vigillant.system.managers.FriendManager;
 import dlindustries.vigillant.system.managers.ProfileManager;
 import dlindustries.vigillant.system.module.ModuleManager;
+import dlindustries.vigillant.system.utils.rotation.RotationManager;
 import dlindustries.vigillant.system.utils.rotation.RotatorManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
@@ -36,6 +37,7 @@ public final class system {
 		this.moduleManager = new ModuleManager();
 		this.clickGui = new ClickGui();
 		this.rotatorManager = new RotatorManager();
+		RotationManager.init(this.eventManager);
 		this.profileManager = new ProfileManager();
 		this.friendManager = new FriendManager();
 

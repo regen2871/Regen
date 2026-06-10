@@ -93,6 +93,22 @@ public final class RotatorManager implements PacketSendListener, BlockBreakingLi
 		}
 	}
 
+	/** Queues a silent rotation applied only while movement packets are sent. */
+	public void requestSilentRotation(Rotation rotation) {
+		currentRotation = rotation;
+		packetSpoofActive = true;
+	}
+
+	public void clearSilentRotation() {
+		packetSpoofActive = false;
+		currentRotation = null;
+		endPacketSpoof();
+	}
+
+	public boolean hasSilentRotation() {
+		return packetSpoofActive && currentRotation != null;
+	}
+
 	public void beginPacketSpoof(Rotation rotation) {
 		if (mc.player == null) return;
 		if (!packetSpoofSaved) {
@@ -102,6 +118,7 @@ public final class RotatorManager implements PacketSendListener, BlockBreakingLi
 		}
 		currentRotation = rotation;
 		packetSpoofActive = true;
+		setServerRotation(rotation);
 		mc.player.setYaw((float) rotation.yaw());
 		mc.player.setPitch((float) rotation.pitch());
 	}
