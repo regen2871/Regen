@@ -1,3 +1,4 @@
+<img width="1882" height="563" alt="Screenshot 2026-06-10 153016" src="https://github.com/user-attachments/assets/1993bded-6af1-4813-9350-844d6c959693" />
 <div align="center">
     <img src="https://img.shields.io/github/issues/DLindustries/System?style=flat" alt="issues">
     <img src="https://img.shields.io/badge/license-GPLV3-green" alt="License">
